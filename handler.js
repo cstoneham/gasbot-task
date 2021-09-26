@@ -36,23 +36,32 @@ module.exports.run = async (event, context) => {
 		token: process.env.SLACK_BOT_TOKEN,
 	});
 
-	// Scape the gas prices
-	const resp = await axios.get('https://ethgasstation.info/');
+	// Scape the L1 Gas Prices
+	const resp = await axios.get('https://etherscan.io/gastracker');
 	const $ = cheerio.load(resp.data);
 
-	const gasLow = parseInt($('.rgp .safe-low .count').text().trim());
-	const gasFast = parseInt($('.rgp .standard .count').text().trim());
-	const gasTrader = parseInt($('.rgp .fast .count').text().trim());
+	const gasLow = parseInt($('#spanLowPrice').text().trim());
+	const gasFast = parseInt($('#spanAvgPrice').text().trim());
+	const gasTrader = parseInt($('#spanHighPrice').text().trim());
 
+	// API for this guy
 	const gasNowRequest = await axios.get('https://www.gasnow.org/api/v3/gas/price?utm_source=yolo');
 	const gasNowData = gasNowRequest.data.data;
 	const gasNowLow = Math.trunc(gasNowData.standard / 1000000000);
 	const gasNowFast = Math.trunc(gasNowData.fast / 1000000000);
 	const gasNowTrader = Math.trunc(gasNowData.rapid / 1000000000);
 
+	// Scrape the Polygon prices
+	const respPolygon = await axios.get('https://polygonscan.com/gastracker');
+	const $2 = cheerio.load(respPolygon.data); 
+	const gasStandardPolygon = parseInt($2('#standardgas').text().trim().replace(' Gwei', ''))
+	const gasFastPolygon = parseInt($2('#fastgas').text().trim().replace(' Gwei', ''))
+	const gasRapidPolygon = parseInt($2('#rapidgas').text().trim().replace(' Gwei', ''))
+
 	// const receivers = '<@' + carlosId + '> ' + '<@' + dennisId + '> ' + '<@' + navidId + '>';
-	const ethGasStationMessage = '*ETH Gas Station* \n ' +  gasTrader + ' | ' + gasFast + ' | ' + gasLow;
+	const ethGasStationMessage = '*Etherscan* \n ' +  gasTrader + ' | ' + gasFast + ' | ' + gasLow;
 	const gasNowMessage = '*Gas Now* \n' +  gasNowTrader + ' | ' + gasNowFast + ' | ' + gasNowLow;
+	const polygonscanMessage = '*Polygon Scan* \n' +  gasRapidPolygon + ' | ' + gasFastPolygon + ' | ' + gasStandardPolygon;
 
 	// Need to send teamid into this
 	const teamResponse = await app.client.team.info()
@@ -73,6 +82,9 @@ module.exports.run = async (event, context) => {
 
 	// Build notification strings
 	const baseText = `----- *ERC20 L1 GAS* ----- \n ${ethGasStationMessage} \n ${gasNowMessage}`
+
+	const baseTextPolygon = `----- *POLYGON L2* ----- \n ${polygonscanMessage}`
+
 	// const channels = gasbotEnabledResponse.Items[0].channels
 	const channels = gasbotEnabledResponse.Items.map(item => item.channelid)
 
@@ -91,7 +103,7 @@ module.exports.run = async (event, context) => {
 			subsString += '\n'
 		}
 
-		const text = subsString + baseText + '\n';
+		const text = `${subsString}${baseText}\n${baseTextPolygon}\n===================`
 
 		// Post message to chat
 		await app.client.chat.postMessage({
