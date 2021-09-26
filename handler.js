@@ -37,12 +37,12 @@ module.exports.run = async (event, context) => {
 	});
 
 	// Scape the L1 Gas Prices
-	const resp = await axios.get('https://etherscan.io/gastracker');
-	const $ = cheerio.load(resp.data);
+	// const resp = await axios.get('https://etherscan.io/gastracker');
+	// const $ = cheerio.load(resp.data);
 
-	const gasLow = parseInt($('#spanLowPrice').text().trim());
-	const gasFast = parseInt($('#spanAvgPrice').text().trim());
-	const gasTrader = parseInt($('#spanHighPrice').text().trim());
+	// const gasLow = parseInt($('#spanLowPrice').text().trim());
+	// const gasFast = parseInt($('#spanAvgPrice').text().trim());
+	// const gasTrader = parseInt($('#spanHighPrice').text().trim());
 
 	// API for this guy
 	const gasNowRequest = await axios.get('https://www.gasnow.org/api/v3/gas/price?utm_source=yolo');
@@ -59,7 +59,7 @@ module.exports.run = async (event, context) => {
 	const gasRapidPolygon = parseInt($2('#rapidgas').text().trim().replace(' Gwei', ''))
 
 	// const receivers = '<@' + carlosId + '> ' + '<@' + dennisId + '> ' + '<@' + navidId + '>';
-	const ethGasStationMessage = '*Etherscan* \n ' +  gasTrader + ' | ' + gasFast + ' | ' + gasLow;
+	// const ethGasStationMessage = '*Etherscan* \n ' +  gasTrader + ' | ' + gasFast + ' | ' + gasLow;
 	const gasNowMessage = '*Gas Now* \n' +  gasNowTrader + ' | ' + gasNowFast + ' | ' + gasNowLow;
 	const polygonscanMessage = '*Polygon Scan* \n' +  gasRapidPolygon + ' | ' + gasFastPolygon + ' | ' + gasStandardPolygon;
 
@@ -81,7 +81,7 @@ module.exports.run = async (event, context) => {
 	}
 
 	// Build notification strings
-	const baseText = `----- *ERC20 L1 GAS* ----- \n ${ethGasStationMessage} \n ${gasNowMessage}`
+	const baseText = `----- *ERC20 L1 GAS* ----- \n ${gasNowMessage}`
 
 	const baseTextPolygon = `----- *POLYGON L2* ----- \n ${polygonscanMessage}`
 
