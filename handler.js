@@ -4,16 +4,29 @@ const ddb = new AWS.DynamoDB.DocumentClient();
 const axios = require('axios');
 const cheerio = require('cheerio');
 const { App } = require('@slack/bolt');
+const { get } = require('cheerio/lib/api/traversing');
 
-function getTeamAlerts(teamid) {
+function getTeamAlerts(teamid, channelid) {
 	const params = {
 			TableName: 'gasbot',
 			Key: {
 				teamid,
+				channelid,
 			 },
 	};
 	
 	return ddb.scan(params).promise();
+}
+
+function getGasbotEnabled(teamid) {
+	const params = {
+		TableName: 'gasbotteams',
+		Key: {
+			teamid,
+		 },
+};
+
+return ddb.scan(params).promise();
 }
 
 module.exports.run = async (event, context) => {
@@ -26,9 +39,10 @@ module.exports.run = async (event, context) => {
 	// Scape the gas prices
 	const resp = await axios.get('https://ethgasstation.info/');
 	const $ = cheerio.load(resp.data);
-	const gasLow = parseInt($('.count.safe_low').text().trim());
-	const gasFast = parseInt($('.count.standard').text().trim());
-	const gasTrader = parseInt($('.count.fast').text().trim());
+
+	const gasLow = parseInt($('.rgp .safe-low .count').text().trim());
+	const gasFast = parseInt($('.rgp .standard .count').text().trim());
+	const gasTrader = parseInt($('.rgp .fast .count').text().trim());
 
 	const gasNowRequest = await axios.get('https://www.gasnow.org/api/v3/gas/price?utm_source=yolo');
 	const gasNowData = gasNowRequest.data.data;
@@ -42,27 +56,47 @@ module.exports.run = async (event, context) => {
 
 	// Need to send teamid into this
 	const teamResponse = await app.client.team.info()
-	const teamAlertsResponse = await getTeamAlerts(teamResponse.team.id);
-
-	// Notify subscribed members if necessary
-	const baseText = `ERC20 L1 GAS \n ${ethGasStationMessage} \n ${gasNowMessage}`
-
-	const isTeamAlertExistant = teamAlertsResponse.Items && teamAlertsResponse.Items[0] &&
-		teamAlertsResponse.Items[0].subscribers && teamAlertsResponse.Items[0].subscribers.length;
-
-	let subsString = '';
+	const teamid = teamResponse.team.id
 	
-	if (isTeamAlertExistant) {
-		teamAlertsResponse.Items[0].subscribers.forEach(sub => subsString += ` <@${sub}>`)
-		subsString += '\n'
+	let gasbotEnabledResponse = {};
+	let isGasbotEnabled = false;
+
+	gasbotEnabledResponse = await getGasbotEnabled(teamid);
+
+	isGasbotEnabled = gasbotEnabledResponse.Items && gasbotEnabledResponse.Items[0] &&
+		gasbotEnabledResponse.Items[0].enabled;
+
+	// don't do anything if gasbot isn't enabled
+	if (!isGasbotEnabled) {
+		return
 	}
 
-	const text = subsString + baseText;
+	// Build notification strings
+	const baseText = `----- *ERC20 L1 GAS* ----- \n ${ethGasStationMessage} \n ${gasNowMessage}`
+	// const channels = gasbotEnabledResponse.Items[0].channels
+	const channels = gasbotEnabledResponse.Items.map(item => item.channelid)
 
-	// Post message to chat
-	await app.client.chat.postMessage({
-		text,
-		channel: conversationId,
-	})
-	
+	for (const index in channels) {
+		const channel = channels[index];
+
+		// Get alerts for members of that channel
+		const teamAlertsResponse = await getTeamAlerts(teamid, channel)
+		const isTeamAlertExistant = teamAlertsResponse.Items && teamAlertsResponse.Items[0] &&
+			teamAlertsResponse.Items[0].subscribers && teamAlertsResponse.Items[0].subscribers.length;
+
+		let subsString = '';
+		
+		if (isTeamAlertExistant) {
+			teamAlertsResponse.Items[0].subscribers.forEach(sub => subsString += ` <@${sub}>`)
+			subsString += '\n'
+		}
+
+		const text = subsString + baseText + '\n';
+
+		// Post message to chat
+		await app.client.chat.postMessage({
+			text,
+			channel,
+		})
+	}
 };

@@ -17,7 +17,7 @@ functions:
     handler: handler.run
     events:
       # Invoke Lambda function every minute
-      - schedule: rate(15 minute)
+      - schedule: rate(1 minute)
 
 plugins:
   - serverless-offline
