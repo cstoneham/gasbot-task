@@ -32,7 +32,7 @@ function getGasbotEnabled(teamid) {
 // prices {"standard":225,"fast":225,"instant":225}
 // source "zapper"
 function gasPricesFormatter(prices, source) {
-	return `*${source}* \n ${prices.rapid} | ${prices.fast} | ${prices.standard}`
+	return `*${source}* \n ${prices.instant} | ${prices.fast} | ${prices.standard}`
 }
 
 module.exports.run = async (event, context) => {
@@ -58,7 +58,7 @@ module.exports.run = async (event, context) => {
 	const gasNowPrices = {
 		standard: gasNowLow,
 		fast: gasNowFast,
-		rapid: gasNowTrader,
+		instant: gasNowTrader,
 	}
 
 	// Scrape the Polygon prices
@@ -71,7 +71,7 @@ module.exports.run = async (event, context) => {
 	const polyscanPolygonPrices = {
 		standard: gasStandardPolygon,
 		fast: gasFastPolygon,
-		rapid: gasRapidPolygon,
+		instant: gasRapidPolygon,
 	}
 
 	const gasNowMessage = gasPricesFormatter(gasNowPrices, 'Gas Now')
