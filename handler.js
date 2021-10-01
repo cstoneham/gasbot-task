@@ -77,8 +77,8 @@ module.exports.run = async (event, context) => {
 	const gasNowMessage = gasPricesFormatter(gasNowPrices, 'Gas Now')
 	const polygonscanMessage = gasPricesFormatter(polyscanPolygonPrices, 'Polygon Scan')
 	const zapperAvalancheMessage = gasPricesFormatter(zapperGasAvalanche.data, 'Zapper')
-	const zapperPolygonMessage = gasPricesFormatter(zapperGasEth.data, 'Zapper')
-	const zapperEthMessage = gasPricesFormatter(zapperGasPolygon.data, 'Zapper')
+	const zapperPolygonMessage = gasPricesFormatter(zapperGasPolygon.data, 'Zapper')
+	const zapperEthMessage = gasPricesFormatter(zapperGasEth.data, 'Zapper')
 
 	// Need to send teamid into this
 	const teamResponse = await app.client.team.info()
