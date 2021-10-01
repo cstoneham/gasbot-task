@@ -24,9 +24,15 @@ function getGasbotEnabled(teamid) {
 		Key: {
 			teamid,
 		 },
-};
+	};
 
-return ddb.scan(params).promise();
+	return ddb.scan(params).promise();
+}
+
+// prices {"standard":225,"fast":225,"instant":225}
+// source "zapper"
+function gasPricesFormatter(prices, source) {
+	return `*${source}* \n ${prices.rapid} | ${prices.fast} | ${prices.standard}`
 }
 
 module.exports.run = async (event, context) => {
@@ -36,13 +42,10 @@ module.exports.run = async (event, context) => {
 		token: process.env.SLACK_BOT_TOKEN,
 	});
 
-	// Scape the L1 Gas Prices
-	// const resp = await axios.get('https://etherscan.io/gastracker');
-	// const $ = cheerio.load(resp.data);
-
-	// const gasLow = parseInt($('#spanLowPrice').text().trim());
-	// const gasFast = parseInt($('#spanAvgPrice').text().trim());
-	// const gasTrader = parseInt($('#spanHighPrice').text().trim());
+	// Zapper API
+	const zapperGasEth = await axios.get('https://api.zapper.fi/v1/gas-price?api_key=5d1237c2-3840-4733-8e92-c5a58fe81b88&network=ethereum&eip1559=false')
+	const zapperGasPolygon = await axios.get('https://api.zapper.fi/v1/gas-price?api_key=5d1237c2-3840-4733-8e92-c5a58fe81b88&network=polygon&eip1559=false')
+	const zapperGasAvalanche = await axios.get('https://api.zapper.fi/v1/gas-price?api_key=5d1237c2-3840-4733-8e92-c5a58fe81b88&network=avalanche&eip1559=false')
 
 	// API for this guy
 	const gasNowRequest = await axios.get('https://www.gasnow.org/api/v3/gas/price?utm_source=yolo');
@@ -50,6 +53,11 @@ module.exports.run = async (event, context) => {
 	const gasNowLow = Math.trunc(gasNowData.standard / 1000000000);
 	const gasNowFast = Math.trunc(gasNowData.fast / 1000000000);
 	const gasNowTrader = Math.trunc(gasNowData.rapid / 1000000000);
+	const gasNowPrices = {
+		standard: gasNowLow,
+		fast: gasNowFast,
+		trader: gasNowTrader,
+	}
 
 	// Scrape the Polygon prices
 	const respPolygon = await axios.get('https://polygonscan.com/gastracker');
@@ -58,10 +66,17 @@ module.exports.run = async (event, context) => {
 	const gasFastPolygon = parseInt($2('#fastgas').text().trim().replace(' Gwei', ''))
 	const gasRapidPolygon = parseInt($2('#rapidgas').text().trim().replace(' Gwei', ''))
 
-	// const receivers = '<@' + carlosId + '> ' + '<@' + dennisId + '> ' + '<@' + navidId + '>';
-	// const ethGasStationMessage = '*Etherscan* \n ' +  gasTrader + ' | ' + gasFast + ' | ' + gasLow;
-	const gasNowMessage = '*Gas Now* \n' +  gasNowTrader + ' | ' + gasNowFast + ' | ' + gasNowLow;
-	const polygonscanMessage = '*Polygon Scan* \n' +  gasRapidPolygon + ' | ' + gasFastPolygon + ' | ' + gasStandardPolygon;
+	const polyscanPolygonPrices = {
+		standard: gasStandardPolygon,
+		fast: gasFastPolygon,
+		rapid: gasRapidPolygon,
+	}
+
+	const gasNowMessage = gasPricesFormatter(gasNowPrices, 'Gas Now')
+	const polygonscanMessage = gasPricesFormatter(polyscanPolygonPrices, 'Polygon Scan')
+	const zapperAvalancheMessage = gasPricesFormatter(zapperGasAvalanche, 'Zapper')
+	const zapperPolygonMessage = gasPricesFormatter(zapperGasEth, 'Zapper')
+	const zapperEthMessage = gasPricesFormatter(zapperGasPolygon, 'Zapper')
 
 	// Need to send teamid into this
 	const teamResponse = await app.client.team.info()
@@ -81,9 +96,11 @@ module.exports.run = async (event, context) => {
 	}
 
 	// Build notification strings
-	const baseText = `----- *ERC20 L1 GAS* ----- \n ${gasNowMessage}`
+	const baseText = `----- *ERC20 L1 GAS* ----- \n ${gasNowMessage} \n ${zapperEthMessage}`
 
-	const baseTextPolygon = `----- *POLYGON L2* ----- \n ${polygonscanMessage}`
+	const baseTextPolygon = `----- *POLYGON L2* ----- \n ${polygonscanMessage} \n ${zapperPolygonMessage}`
+
+	const baseTextAvalanche = `----- *AVALANCHE L2* -----  \n ${zapperAvalancheMessage}`
 
 	// const channels = gasbotEnabledResponse.Items[0].channels
 	const channels = gasbotEnabledResponse.Items.map(item => item.channelid)
@@ -103,7 +120,7 @@ module.exports.run = async (event, context) => {
 			subsString += '\n'
 		}
 
-		const text = `${subsString}${baseText}\n${baseTextPolygon}\n===================`
+		const text = `${subsString}${baseText}\n${baseTextPolygon}\n${baseTextAvalanche}\n===================`
 
 		// Post message to chat
 		await app.client.chat.postMessage({
