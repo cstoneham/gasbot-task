@@ -47,6 +47,8 @@ module.exports.run = async (event, context) => {
 	const zapperGasPolygon = await axios.get('https://api.zapper.fi/v1/gas-price?api_key=5d1237c2-3840-4733-8e92-c5a58fe81b88&network=polygon&eip1559=false')
 	const zapperGasAvalanche = await axios.get('https://api.zapper.fi/v1/gas-price?api_key=5d1237c2-3840-4733-8e92-c5a58fe81b88&network=avalanche&eip1559=false')
 
+	console.log(zapperGasAvalanche.data)
+
 	// API for this guy
 	const gasNowRequest = await axios.get('https://www.gasnow.org/api/v3/gas/price?utm_source=yolo');
 	const gasNowData = gasNowRequest.data.data;
@@ -56,7 +58,7 @@ module.exports.run = async (event, context) => {
 	const gasNowPrices = {
 		standard: gasNowLow,
 		fast: gasNowFast,
-		trader: gasNowTrader,
+		rapid: gasNowTrader,
 	}
 
 	// Scrape the Polygon prices
@@ -74,9 +76,9 @@ module.exports.run = async (event, context) => {
 
 	const gasNowMessage = gasPricesFormatter(gasNowPrices, 'Gas Now')
 	const polygonscanMessage = gasPricesFormatter(polyscanPolygonPrices, 'Polygon Scan')
-	const zapperAvalancheMessage = gasPricesFormatter(zapperGasAvalanche, 'Zapper')
-	const zapperPolygonMessage = gasPricesFormatter(zapperGasEth, 'Zapper')
-	const zapperEthMessage = gasPricesFormatter(zapperGasPolygon, 'Zapper')
+	const zapperAvalancheMessage = gasPricesFormatter(zapperGasAvalanche.data, 'Zapper')
+	const zapperPolygonMessage = gasPricesFormatter(zapperGasEth.data, 'Zapper')
+	const zapperEthMessage = gasPricesFormatter(zapperGasPolygon.data, 'Zapper')
 
 	// Need to send teamid into this
 	const teamResponse = await app.client.team.info()
